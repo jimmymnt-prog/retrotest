@@ -1,0 +1,14 @@
+﻿{
+  "ext_name": {
+    "message": "100 Offline Games",
+    "description": "Extension name shown in Chrome"
+  },
+  "ext_description": {
+    "message": "Play 100 classic Genesis games instantly — no upload, no server, 100% local. Powered by Genesis Plus GX.",
+    "description": "Extension description shown in Chrome Web Store"
+  },
+  "action_title": {
+    "message": "Genesis Library",
+    "description": "Tooltip on the toolbar icon"
+  }
+}

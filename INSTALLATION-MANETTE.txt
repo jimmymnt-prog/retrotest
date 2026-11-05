@@ -1,0 +1,67 @@
+MANETTE TÉLÉPHONE — FICHIERS À AJOUTER / REMPLACER
+
+1. Décompressez ce ZIP.
+2. Copiez son contenu à la racine de votre projet retrogaming :
+   - remplacez seulement index.html ;
+   - ajoutez manette.html et phone-controller.css ;
+   - fusionnez le dossier js avec le vôtre : ajoutez les nouveaux fichiers,
+     sans supprimer popup.js ni emulator-init.js.
+   - INSTALLATION-MANETTE.txt est une notice ; sa publication est facultative.
+3. Publiez les modifications dans votre dépôt, puis laissez Vercel redéployer.
+   Aucun réglage Vercel ni serveur personnel supplémentaire à installer.
+   Conservez votre fichier vercel.json actuel.
+4. Rechargez le site sur l’ordinateur. Lancez un jeu, puis cliquez sur
+   « Jouer avec mon téléphone » dans la barre au-dessus du jeu.
+5. Scannez le QR code avec l’appareil photo du téléphone, ouvrez le lien
+   et gardez cette page ouverte. Jouez en mode paysage.
+
+Les dossiers games, images et emulatorjs ne sont pas inclus et ne changent pas.
+Il faut conserver le reste de votre site. Ce ZIP seul ne constitue pas un site.
+
+UTILISATION
+- Une manette téléphone, pour le joueur 1.
+- Les boutons s’adaptent à la console détectée : Mega Drive, NES, GB/GBA,
+  SNES, PS1, N64, Master System et Game Gear.
+- Les appuis simultanés et les diagonales sont pris en charge.
+- N64 : la croix commande le stick par défaut, en huit directions à pleine
+  amplitude. Décochez « Stick N64 » pour commander la croix numérique.
+  Ce n’est pas un joystick à amplitude progressive.
+- PS1 : commandes numériques et boutons ; pas de sticks analogiques.
+- Fermer la fenêtre du QR code sur le PC conserve la connexion.
+- « Nouvelle connexion » révoque l’ancienne manette et recrée le QR code.
+- Revenir à la bibliothèque ferme la session. Chaque partie doit être associée.
+- Les touches sont relâchées à la déconnexion, à la mise en arrière-plan du
+  téléphone ou si les commandes ne sont plus reçues pendant 1,2 seconde.
+- L’ordinateur peut être branché à la TV en HDMI.
+- Le plein écran dépend du navigateur, notamment sur iPhone. Le mode paysage
+  fonctionne aussi sans plein écran. Le maintien de l’écran allumé dépend
+  également des possibilités du navigateur.
+
+CONNEXION
+Une connexion Internet est nécessaire pour l’association, via le service public
+PeerJS. Les commandes sont ensuite envoyées directement par WebRTC entre les
+navigateurs. Les bibliothèques sont incluses localement dans js/vendor.
+Le QR code est créé localement, sans envoyer son contenu à un service de QR.
+Le lien contient un jeton d’association : gardez-le pour votre partie.
+Le service public est une dépendance externe, sans garantie de disponibilité.
+
+Utilisez de préférence le même Wi-Fi. Certains VPN, Wi-Fi invités ou réseaux
+mobiles empêchent les connexions directes. Aucun relais TURN personnel n’est
+configuré dans cette version : une liaison sur tous les réseaux n’est donc pas
+garantie. Si la connexion échoue : même Wi-Fi, désactivation du VPN si présent,
+puis « Reconnecter » sur le téléphone ou « Nouvelle connexion » sur le PC.
+Si le jeu n’a pas démarré, démarrez-le d’abord sur l’ordinateur.
+Ne testez pas en ouvrant les fichiers par double-clic : publiez sur votre site
+HTTPS (ou utilisez un serveur de développement local adapté).
+
+VALIDATION EFFECTUÉE
+Syntaxe JavaScript vérifiée. Scénarios automatisés avec liaison simulée :
+création du QR et du jeton, association, commandes EmulatorJS, appuis simultanés,
+diagonales, relâchement, arrière-plan, rejet d’un jeton invalide, reconnexion,
+commandes N64 et renouvellement de session.
+La liaison WebRTC sur appareils réels, le rendu mobile et le jeu avec ROM restent
+à vérifier après déploiement ; le dossier des jeux n’était pas fourni.
+
+BIBLIOTHÈQUES
+PeerJS 1.5.5 — licence MIT incluse dans js/vendor/PeerJS-LICENSE.
+qrcode-generator 1.4.4 — mentions de licence dans js/vendor/qrcode.js.

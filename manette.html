@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#090e1d"><meta name="referrer" content="no-referrer"><title>Manette · Retro Gaming</title><link rel="stylesheet" href="phone-controller.css"></head>
+<body class="controller"><header><div><strong>RETRO <span>PAD</span></strong><small id="game-name">Manette téléphone · Joueur 1</small></div><button id="fullscreen" type="button">Plein écran</button></header>
+<div id="connection-line"><span id="connection-status" role="status">Connexion…</span><button id="reconnect" type="button">Reconnecter</button></div>
+<p id="rotate-hint">↻ Tournez le téléphone pour jouer en paysage.</p>
+<main id="pad"><section class="direction-zone" aria-label="Directions"><div id="dpad" aria-label="Croix directionnelle"><span class="up">▲</span><span class="left">◀</span><span class="center">✚</span><span class="right">▶</span><span class="down">▼</span></div><label id="stick-option" hidden><input id="stick-mode" type="checkbox" checked> Stick N64</label></section><section id="center-buttons" aria-label="Commandes de partie"></section><section id="action-buttons" aria-label="Boutons de jeu"></section></main>
+<footer>Gardez cette page ouverte · Le jeu reste sur le grand écran</footer>
+<script src="js/vendor/peerjs.min.js"></script><script src="js/phone-controller.js"></script></body></html>

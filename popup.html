@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>100 Offline Games — Web</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; min-height: 100vh;
+      overflow: hidden;
+      background: #0c0c14;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex; flex-direction: column;
+    }
+    #topnav {
+      flex: 0 0 37px;
+      background: #070712;
+      border-bottom: 1px solid #0d1f36;
+      display: flex; align-items: center;
+      padding: 0 10px; gap: 2px;
+      overflow: hidden;
+    }
+    .tnav-link {
+      color: #4a7aaa;
+      font-size: 14px; font-weight: 600;
+      letter-spacing: 0.4px;
+      text-decoration: none;
+      padding: 4px 9px;
+      border-radius: 10px;
+      white-space: nowrap;
+      transition: color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .tnav-link:hover { color: #00c8ff; background: #0a1a2e; }
+    .tnav-link.tnav-active { color: #00c8ff; background: #0a1a2e; }
+    .tnav-sep { flex: 1; }
+    .tnav-rate {
+      color: #f5a623; border: 1px solid #6b4a00;
+      background: rgba(100,60,0,0.25); border-radius: 10px;
+      padding: 3px 9px; font-size: 14px; font-weight: 700;
+      text-decoration: none; white-space: nowrap;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .tnav-rate:hover { color: #ffd060; border-color: #b07000; background: rgba(120,70,0,0.4); }
+    #toolbar {
+      flex: 0 0 38px;
+      background: #0e0e1c;
+      border-bottom: 1px solid #1a2a40;
+      display: flex; align-items: center;
+      padding: 0 10px; gap: 4px;
+      position: relative; z-index: 20;
+    }
+    .genre-btn {
+      padding: 3px 10px; border-radius: 12px;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      color: #3a6a9a; border: 1px solid transparent;
+      background: transparent; cursor: pointer;
+      white-space: nowrap; transition: all .15s;
+      flex-shrink: 0;
+    }
+    .genre-btn:hover { color: #00b4ff; border-color: #1a3a5c; background: #1a1a2e; }
+    .genre-btn.active { color: #00b4ff; border-color: #0060b0; background: #0a2040; }
+    #tb-sep { flex: 1; }
+    #h-search {
+      background: #ebebeb;
+      border: 1px solid #1a3a5c;
+      border-radius: 14px;
+      color: #000000;
+      font-size: 13px;
+      padding: 3px 11px;
+      width: 120px; outline: none;
+      transition: border-color .2s;
+      flex-shrink: 0;
+    }
+    #h-search:focus { border-color: #0070c0; }
+    #h-search::placeholder { color: #253a55; }
+    #library {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: clip;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-auto-rows: 162px;
+      gap: 10px;
+      align-content: start;
+    }
+    #library::-webkit-scrollbar { width: 5px; }
+    #library::-webkit-scrollbar-thumb { background: #1a3a5c; border-radius: 3px; }
+    #library::-webkit-scrollbar-track { background: #0a0a18; }
+    .game-card {
+      position: relative; cursor: pointer;
+      border-radius: 7px; overflow: hidden;
+      border: 1px solid #1a2a3a;
+      background: #141424;
+      transition: box-shadow .18s ease, border-color .18s;
+      height: 100%;
+      display: flex; flex-direction: column;
+    }
+    .game-card:hover {
+      box-shadow: 0 4px 18px rgba(0,110,200,0.50);
+      border-color: #0060b0;
+    }
+    .game-img-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      background: #0e0e24;
+    }
+    .game-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .game-fallback {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(140deg, #0a1830 0%, #182848 100%);
+      font-size: 30px; color: #1a4a7a;
+    }
+    .game-label {
+      padding: 1px 1px 1px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1px;
+    color: #ffffff;
+    line-height: 1.25;
+    text-align: center;
+    background: #0e3b57;
+    border-top: 1px solid #70d5f1;
+    }
+    .game-card:hover .game-label { color: #70d5f1; }
+    .game-genre-badge {
+      position: absolute; top: 4px; left: 4px;
+      background: rgba(0,8,24,0.82);
+      border-radius: 3px; padding: 2px 5px;
+      font-size: 7.5px; font-weight: 700;
+      color: #4080b0; letter-spacing: 0.5px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .empty-state {
+      grid-column: 1 / -1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 200px; gap: 10px;
+    }
+    .empty-state span { font-size: 36px; opacity: 0.25; }
+    .empty-state p { color: #253a55; font-size: 12px; letter-spacing: 1px; }
+    #emu-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: none; flex-direction: column;
+      background: #06060f;
+    }
+    #emu-bar {
+      flex: 0 0 34px;
+      background: #0e0e1c;
+      border-bottom: 1px solid #1a3a5c;
+      display: flex; align-items: center;
+      padding: 0 10px; gap: 10px;
+    }
+    #emu-back {
+      color: #0090d0; font-size: 11px; font-weight: 600;
+      cursor: pointer; padding: 3px 10px;
+      border: 1px solid #1a3a5c; border-radius: 12px;
+      background: #0a1a2e; transition: all .15s;
+    }
+    #emu-back:hover { color: #00c8ff; border-color: #0060b0; }
+    #emu-title { color: #b0cce8; font-size: 11px; font-weight: 600; }
+    #perf-badge { margin-left:auto;color:#7be2ff;font-size:10px;font-weight:800;border:1px solid #1c6087;background:#092439;border-radius:10px;padding:3px 8px;white-space:nowrap; }
+    #emu-frame-wrap { flex: 1; position: relative; }
+    #loading-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; background: #06060f;
+    }
+    .ld-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #141a28; border-top-color: #0090d0;
+      border-radius: 50%; animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ld-title { color: #00b4ff; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-align: center; max-width: 420px; }
+    .ld-status { color: #2a6080; font-size: 11px; letter-spacing: 1px; }
+    .ld-progress { width:min(420px,72vw); height:8px; border:1px solid #123f5c; background:#071521; border-radius:999px; overflow:hidden; box-shadow:inset 0 0 10px rgba(0,0,0,.35); }
+    .ld-progress-bar { width:0%; height:100%; background:linear-gradient(90deg,#008bd2,#00d8ff); transition:width .18s ease; }
+    .ld-percent { color:#7be2ff; font-size:12px; font-weight:800; letter-spacing:1px; min-width:48px; text-align:center; }
+    .ld-dots::after { content: ''; animation: dots 1.4s steps(4,end) infinite; }
+    @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+    #emu-frame {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: none; background: #000; display: none;
+    }
+  </style>
+</head>
+<body>
+  <header id="topnav">
+    <a class="tnav-link tnav-active" href="https://myemulator.onl/sega-genesis-mega-drive-games/" target="_blank">All Genesis Games</a>
+    <a class="tnav-link" href="https://myemulator.onl/gameboy-games/" target="_blank">GBA</a>
+    <a class="tnav-link" href="https://myemulator.onl/snes-games/" target="_blank">SNES</a>
+    <a class="tnav-link" href="https://myemulator.onl/nintendo-nes-games/" target="_blank">NES</a>
+    <a class="tnav-link" href="https://myemulator.onl/nintendo-64-n64-games/" target="_blank">N64</a>
+    <a class="tnav-link" href="https://myemulator.onl/nds-games/" target="_blank">NDS</a>
+    <div class="tnav-sep"></div>
+  </header>
+  <nav id="toolbar">
+    <button class="genre-btn active" data-genre="all">All</button>
+    <button class="genre-btn" data-genre="platformer">Platform</button>
+    <button class="genre-btn" data-genre="beat">Beat'em Up</button>
+    <button class="genre-btn" data-genre="action">Action</button>
+    <button class="genre-btn" data-genre="fighting">Fighting</button>
+    <button class="genre-btn" data-genre="shooter">Shooter</button>
+    <button class="genre-btn" data-genre="rpg">RPG</button>
+    <button class="genre-btn" data-genre="sports">Sports</button>
+    <button class="genre-btn" data-genre="racing">Racing</button>
+    <div id="tb-sep"></div>
+    <input id="h-search" type="search" placeholder="Search..." spellcheck="false">
+  </nav>
+  <main id="library"></main>
+  <div id="emu-overlay">
+    <div id="emu-bar">
+      <button id="emu-back">Back</button>
+      <span id="emu-title"></span><span id="perf-badge">PERFORMANCE AUTO · WebGL2/Threads</span>
+    </div>
+    <div id="emu-frame-wrap">
+      <div id="loading-overlay">
+        <div class="ld-spinner"></div>
+        <div class="ld-title" id="ld-game-name">Loading...</div>
+        <div class="ld-progress" aria-label="Progression du chargement"><div class="ld-progress-bar" id="ld-progress-bar"></div></div>
+        <div class="ld-percent" id="ld-percent">0 %</div>
+        <div class="ld-status"><span id="ld-status">Loading game</span></div>
+      </div>
+      <iframe id="emu-frame" allow="autoplay; fullscreen; gamepad; cross-origin-isolated" src="about:blank"></iframe>
+    </div>
+  </div>
+  <script src="js/popup.js"></script>
+</body>
+</html>

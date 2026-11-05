@@ -1,0 +1,14 @@
+﻿{
+  "ext_name": {
+    "message": "100 Giochi Offline",
+    "description": "Extension name shown in Chrome"
+  },
+  "ext_description": {
+    "message": "Gioca a 100 classici Genesis istantaneamente – nessun upload, nessun server, 100 % locale. Alimentato da Genesis Plus GX.",
+    "description": "Extension description shown in Chrome Web Store"
+  },
+  "action_title": {
+    "message": "Libreria Genesis",
+    "description": "Tooltip on the toolbar icon"
+  }
+}

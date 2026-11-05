@@ -1,100 +1,325 @@
-/* Téléphone → EmulatorJS. Les commandes passent par WebRTC, joueur 1. */
 (() => {
   'use strict';
+
+  const RELAY_HTTP = 'https://TON-RELAIS.onrender.com';
+
   const frame = document.getElementById('emu-frame');
   const bar = document.getElementById('emu-bar');
+
   if (!frame || !bar) return;
+
+  const style = document.createElement('style');
+
+  style.textContent = [
+    '#remote-button{padding:5px 10px;border:1px solid #347daa;border-radius:10px;background:#103349;color:#b9eeff;font:600 11px system-ui;cursor:pointer;white-space:nowrap}',
+    '#remote-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(440px,94vw);max-height:94dvh;overflow:auto;padding:25px;border:1px solid #347daa;border-radius:18px;background:#101526;color:#d9ecff;font:14px/1.5 system-ui;text-align:center}',
+    '#remote-dialog::backdrop{background:#000b}',
+    '#remote-dialog h2{font-size:20px;color:#8cdeff}',
+    '#remote-dialog button{padding:9px 13px;border:1px solid #347daa;border-radius:9px;background:#123650;color:#d9ecff;cursor:pointer}',
+    '#remote-close{position:absolute;right:10px;top:10px}',
+    '#remote-code{font-size:42px;letter-spacing:8px;font-weight:800;margin:14px 0}',
+    '#remote-dialog a{color:#8cdeff;overflow-wrap:anywhere}',
+    '#remote-dialog small{display:block;color:#99b4c8;margin:12px 0}',
+    '#remote-qr{max-width:240px;background:white;margin:16px auto}',
+    '#remote-qr svg{display:block;width:100%;height:auto}'
+  ].join('');
+
+  document.head.appendChild(style);
+
   const button = document.createElement('button');
-  button.id = 'phone-play'; button.type = 'button';
+  button.id = 'remote-button';
+  button.type = 'button';
   button.textContent = '📱 Jouer avec mon téléphone';
+
   bar.insertBefore(button, document.getElementById('perf-badge'));
-  const modal = document.createElement('dialog');
-  modal.id = 'phone-dialog';
-  modal.innerHTML = `<button type="button" id="phone-close" aria-label="Fermer">×</button><h2>Votre téléphone devient la manette</h2><p>Scannez ce QR code avec l’appareil photo du téléphone.</p><div id="phone-qr"></div><p id="phone-status" role="status"></p><input id="phone-link" readonly aria-label="Lien de la manette"><p class="phone-note">Gardez le jeu ouvert sur cet ordinateur. Pour une meilleure connexion, utilisez le même Wi-Fi.</p><button type="button" id="phone-new">Nouvelle connexion</button>`;
-  document.body.appendChild(modal);
-  const status = modal.querySelector('#phone-status');
-  const qr = modal.querySelector('#phone-qr');
-  const link = modal.querySelector('#phone-link');
-  let peer, connection, token, lastSeen = 0, applied = {}, manager, lastInfo = '', opening;
-  const setStatus = text => { status.textContent = text; };
+
+  const dialog = document.createElement('dialog');
+  dialog.id = 'remote-dialog';
+
+  dialog.innerHTML = [
+    '<button id="remote-close" type="button" aria-label="Fermer">×</button>',
+    '<h2>Connecter votre téléphone</h2>',
+    '<p>Ouvrez cette adresse sur le téléphone :</p>',
+    '<a id="remote-address" target="_blank" rel="noopener"></a>',
+    '<p>Puis saisissez ce code :</p>',
+    '<div id="remote-code">······</div>',
+    '<small id="remote-expiry"></small>',
+    '<div id="remote-qr"></div>',
+    '<p id="remote-status" role="status"></p>',
+    '<button id="remote-new" type="button">Nouveau code / Reconnecter</button>',
+    '<small>Un nouveau code déconnecte la manette précédente.</small>'
+  ].join('');
+
+  document.body.appendChild(dialog);
+
+  const find = id => dialog.querySelector('#' + id);
+  const status = text => {
+    find('remote-status').textContent = text;
+  };
+
+  find('remote-address').href = RELAY_HTTP;
+  find('remote-address').textContent = RELAY_HTTP;
+
+  let socket;
+  let active = false;
+  let timer;
+  let attempts = 0;
+  let manager;
+  let pressed = new Set();
+  let lastInput = 0;
+  let lastReply = 0;
+  let expires = 0;
+  let phoneConnected = false;
+  let ticks = 0;
+
   function release() {
-    if (manager) for (const key of Object.keys(applied)) {
-      try { manager.simulateInput(0, +key, 0); } catch (_) {}
+    for (const id of pressed) {
+      try {
+        manager?.simulateInput(0, id, 0);
+      } catch (_) {}
     }
-    applied = {};
+
+    pressed.clear();
   }
-  function reset() {
-    release(); connection?.close(); connection = null;
-    peer?.destroy(); peer = null; clearTimeout(opening);
-    qr.replaceChildren(); link.value = ''; lastInfo = '';
+
+  function send(value) {
+    if (
+      socket?.readyState === WebSocket.OPEN &&
+      socket.bufferedAmount < 4096
+    ) {
+      socket.send(JSON.stringify(value));
+    }
+  }
+
+  function stop() {
+    active = false;
+    clearTimeout(timer);
+    timer = null;
+
+    release();
+
+    const previous = socket;
+    socket = null;
+    previous?.close();
+
+    phoneConnected = false;
     button.textContent = '📱 Jouer avec mon téléphone';
   }
-  function info() {
-    const emu = frame.contentWindow?.EJS_emulator;
-    return { type: 'info', core: emu?.getControlScheme?.() || frame.contentWindow?.EJS_core || 'segaMD', title: document.getElementById('emu-title').textContent, ready: !!emu?.gameManager };
-  }
-  function start() {
-    reset();
-    if (!window.Peer || !window.qrcode) { setStatus('Fichiers de connexion manquants. Vérifiez le dossier js/vendor.'); return; }
-    token = crypto.randomUUID();
-    setStatus('Création de la connexion…');
-    const current = peer = new Peer(undefined, { debug: 0 });
-    opening = setTimeout(() => { if (peer === current && !link.value) setStatus('Le service de connexion ne répond pas. Réessayez.'); }, 15000);
-    current.on('open', id => {
-      if (peer !== current) return;
-      clearTimeout(opening);
-      const url = new URL('manette.html', location.href);
-      url.hash = new URLSearchParams({ peer: id, token }).toString();
-      link.value = url.href;
-      const code = qrcode(0, 'M'); code.addData(url.href); code.make();
-      qr.innerHTML = code.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
-      setStatus('Prêt à scanner · joueur 1');
-    });
-    current.on('connection', incoming => {
-      if (peer !== current || incoming.metadata?.token !== token || connection) {
-        incoming.on('open', () => incoming.close()); return;
+
+  function connect(fresh = true) {
+    stop();
+    active = true;
+
+    if (fresh) attempts = 0;
+
+    if (RELAY_HTTP.includes('TON-RELAIS')) {
+      status('Renseignez d’abord RELAY_HTTP dans js/phone-host.js.');
+      return;
+    }
+
+    find('remote-code').textContent = '······';
+    find('remote-qr').replaceChildren();
+
+    status('Connexion au relais… Le premier démarrage peut prendre un moment.');
+
+    const url = new URL('/ws', RELAY_HTTP);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    const current = new WebSocket(url);
+    socket = current;
+    lastReply = Date.now();
+
+    current.onopen = () => {
+      if (socket !== current) return;
+
+      lastReply = Date.now();
+      send({ type: 'create' });
+    };
+
+    current.onmessage = event => {
+      if (socket !== current) return;
+
+      let data;
+
+      try {
+        data = JSON.parse(event.data);
+      } catch (_) {
+        return;
       }
-      connection = incoming;
-      incoming.on('open', () => {
-        lastSeen = Date.now(); lastInfo = '';
-        button.textContent = '📱 Téléphone connecté';
-        setStatus('Téléphone connecté ! Vous pouvez fermer cette fenêtre.');
-      });
-      incoming.on('data', data => {
-        if (connection !== incoming || !data || data.type !== 'state' || !Array.isArray(data.buttons) || data.buttons.length > 24) return;
-        if (!data.buttons.every(i => Number.isInteger(i) && i >= 0 && i <= 23)) return;
-        lastSeen = Date.now();
-        const nextManager = frame.contentWindow?.EJS_emulator?.gameManager;
-        if (manager !== nextManager) { release(); manager = nextManager; }
-        if (!manager) return;
-        const next = Object.fromEntries(data.buttons.map(i => [i, i >= 16 ? 32767 : 1]));
-        for (const key of new Set([...Object.keys(applied), ...Object.keys(next)])) {
-          if ((applied[key] || 0) !== (next[key] || 0)) manager.simulateInput(0, +key, next[key] || 0);
+
+      lastReply = Date.now();
+
+      if (data.type === 'created') {
+        attempts = 0;
+        expires = data.expires;
+
+        find('remote-code').textContent = data.code;
+
+        const controller = new URL('/', RELAY_HTTP);
+        controller.searchParams.set('code', data.code);
+
+        if (window.qrcode) {
+          const qr = window.qrcode(0, 'M');
+
+          qr.addData(controller.href);
+          qr.make();
+
+          find('remote-qr').innerHTML = qr.createSvgTag({
+            cellSize: 4,
+            margin: 16,
+            scalable: true
+          });
         }
-        applied = next;
-      });
-      const disconnected = () => {
-        if (connection !== incoming) return;
-        release(); connection = null; button.textContent = '📱 Reconnecter le téléphone';
-        setStatus('Téléphone déconnecté. Reconnectez-le ou scannez à nouveau.');
-      };
-      incoming.on('close', disconnected); incoming.on('error', disconnected);
-    });
-    current.on('error', () => { if (peer === current) setStatus('Connexion indisponible. Vérifiez Internet et cliquez sur Nouvelle connexion.'); });
-    current.on('disconnected', () => { if (peer === current && !connection) setStatus('Service déconnecté. Cliquez sur Nouvelle connexion.'); });
+
+        status('Code prêt. Connectez votre téléphone.');
+      } else if (data.type === 'phone_connected') {
+        phoneConnected = true;
+
+        button.textContent = '📱 Téléphone connecté';
+        status('Téléphone connecté ! Fermez cette fenêtre pour jouer.');
+      } else if (data.type === 'phone_disconnected') {
+        phoneConnected = false;
+        release();
+
+        button.textContent = '📱 Reconnecter le téléphone';
+
+        status(
+          'Téléphone déconnecté. Reconnectez-le avec le même code s’il est encore valide.'
+        );
+      } else if (
+        data.type === 'input' &&
+        Array.isArray(data.buttons)
+      ) {
+        if (
+          !data.buttons.every(
+            i => Number.isInteger(i) && i >= 0 && i <= 23
+          )
+        ) {
+          return;
+        }
+
+        const nextManager =
+          frame.contentWindow?.EJS_emulator?.gameManager;
+
+        if (manager !== nextManager) {
+          release();
+          manager = nextManager;
+        }
+
+        lastInput = Date.now();
+
+        if (!manager) return;
+
+        const next = new Set(data.buttons);
+
+        for (const id of new Set([...pressed, ...next])) {
+          if (pressed.has(id) === next.has(id)) continue;
+
+          try {
+            manager.simulateInput(
+              0,
+              id,
+              next.has(id) ? (id >= 16 ? 32767 : 1) : 0
+            );
+          } catch (_) {}
+        }
+
+        pressed = next;
+      } else if (data.type === 'error') {
+        active = false;
+        status(data.message);
+      }
+    };
+
+    current.onerror = () => {};
+
+    current.onclose = () => {
+      if (socket !== current) return;
+
+      socket = null;
+      release();
+      phoneConnected = false;
+
+      button.textContent = '📱 Connexion perdue';
+      find('remote-code').textContent = '······';
+      find('remote-qr').replaceChildren();
+
+      if (!active) return;
+
+      if (attempts++ < 5) {
+        status('Relais indisponible. Nouvelle tentative en cours…');
+
+        timer = setTimeout(
+          () => connect(false),
+          Math.min(15000, 1500 * 2 ** attempts)
+        );
+      } else {
+        status(
+          'Relais indisponible. Vérifiez son déploiement puis cliquez sur Reconnecter.'
+        );
+      }
+    };
   }
+
   setInterval(() => {
-    if (!connection?.open) return;
-    if (Date.now() - lastSeen > 1200) release();
-    const details = info(), text = JSON.stringify(details);
-    // Ping also lets the phone detect an unresponsive or suspended computer.
-    try { connection.send({ type: 'ping' }); if (text !== lastInfo) { connection.send(details); lastInfo = text; } } catch (_) { release(); }
-  }, 300);
-  button.addEventListener('click', () => { if (!modal.open) modal.showModal(); if (!peer || peer.destroyed) start(); });
-  modal.querySelector('#phone-close').onclick = () => modal.close();
-  modal.querySelector('#phone-new').onclick = start;
-  link.onclick = () => link.select();
-  document.getElementById('emu-back').addEventListener('click', () => { reset(); modal.close(); });
-  frame.addEventListener('load', () => { release(); manager = null; lastInfo = ''; });
-  window.addEventListener('pagehide', reset);
+    if (Date.now() - lastInput > 1000) release();
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    if (Date.now() - lastReply > 6000) {
+      socket.close();
+      return;
+    }
+
+    if (++ticks % 5 !== 0) return;
+
+    const emu = frame.contentWindow?.EJS_emulator;
+    const nextManager = emu?.gameManager;
+
+    if (manager !== nextManager) {
+      release();
+      manager = nextManager;
+    }
+
+    send({
+      type: 'info',
+      core:
+        emu?.getControlScheme?.() ||
+        frame.contentWindow?.EJS_core ||
+        'segaMD',
+      title:
+        document.getElementById('emu-title')?.textContent ||
+        'Jeu rétro',
+      ready: !!manager
+    });
+
+    send({ type: 'ping' });
+
+    find('remote-expiry').textContent =
+      expires > Date.now()
+        ? 'Code valable pour une connexion pendant 15 minutes.'
+        : phoneConnected
+          ? 'Manette connectée.'
+          : 'Code expiré : cliquez sur Nouveau code.';
+  }, 100);
+
+  button.onclick = () => {
+    if (!dialog.open) dialog.showModal();
+    if (!socket && !timer) connect();
+  };
+
+  find('remote-close').onclick = () => dialog.close();
+  find('remote-new').onclick = () => connect();
+
+  document.getElementById('emu-back')?.addEventListener('click', () => {
+    stop();
+    dialog.close();
+  });
+
+  frame.addEventListener('load', () => {
+    release();
+    manager = null;
+  });
+
+  window.addEventListener('pagehide', stop);
 })();

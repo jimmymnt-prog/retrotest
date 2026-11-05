@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELAY_HTTP = 'https://TON-RELAIS.onrender.com';
+  const RELAY_HTTP = 'https://retro-manette.onrender.com/';
 
   const frame = document.getElementById('emu-frame');
   const bar = document.getElementById('emu-bar');

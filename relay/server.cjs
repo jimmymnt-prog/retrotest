@@ -9,7 +9,7 @@ const { WebSocketServer } = require('ws');
 const PORT = Number(process.env.PORT || 3000);
 
 const allowed = new Set(
-  (process.env.ALLOWED_ORIGINS || 'https://retrogaming-phi.vercel.app')
+  (process.env.ALLOWED_ORIGINS || 'https://retrotest.vercel.app/')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean)

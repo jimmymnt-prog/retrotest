@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#101319">
   <title>Retro Pad · Manette téléphone</title>
-  <link rel="stylesheet" href="/controller.css?v=3">
+  <link rel="stylesheet" href="/controller.css?v=3.2">
 </head>
-<body data-player="0">
+<body data-player="0" data-console="segaMD">
   <header class="topbar">
     <div class="app-brand"><span class="app-mark">R<span>▰</span></span><div><strong>RETRO PAD</strong><small id="game-name">Votre téléphone devient la manette.</small></div></div>
-    <div class="top-actions"><span id="player-badge">HORS LIGNE</span><button id="fullscreen" type="button" aria-label="Activer ou quitter le plein écran">⛶ <span>Plein écran</span></button></div>
+    <div class="top-actions"><button id="connection-settings" type="button" aria-controls="pairing" aria-label="Ouvrir les réglages de connexion">⚙</button><span id="player-badge">HORS LIGNE</span><button id="fullscreen" type="button" aria-label="Activer ou quitter le plein écran">⛶ <span>Plein écran</span></button></div>
   </header>
   <details id="pairing" open>
     <summary>Connexion à la partie <span>Code & joueur</span></summary>
@@ -31,11 +31,12 @@
     <div id="analog" class="analog" aria-label="Stick huit directions" hidden><span class="stick-well"><span id="knob"></span></span><small>STICK</small></div>
     <div id="actions" class="actions" aria-label="Boutons de jeu"></div>
     <div id="center-buttons" class="center-buttons" aria-label="Commandes de partie"></div>
-    <div class="speaker" aria-hidden="true"></div>
+    
     <div id="pad-caption" class="pad-caption">6 BUTTONS · READY TO PLAY</div>
   </main>
   <footer><span>Le jeu reste sur le grand écran.</span><span id="control-note">Appuyez sur plusieurs touches pour combiner les actions.</span></footer>
-  <script src="/controller.js?v=3.1"></script>
+  <script src="/controller.js?v=3.2"></script>
 </body>
 </html>
+
 

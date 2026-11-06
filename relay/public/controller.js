@@ -1,4 +1,4 @@
-(() => {
+maj(() => {
   'use strict';
   const $ = id => document.getElementById(id);
   const pad = $('pad'), codeInput = $('code'), seat = $('seat');
@@ -24,7 +24,7 @@
       actions: [b('square','□',1,17,50,'pink-symbol'),b('triangle','△',9,50,15,'green-symbol'),b('cross','×',0,50,85,'blue-symbol'),b('circle','○',8,83,50,'red-symbol')],
       shoulders: [['l2','L2',12],['l1','L1',10],['r2','R2',13],['r1','R1',11]], center: [['select','SELECT',2],['start','START',3]] },
     n64: { name: 'NINTENDO 64', sub: 'THREE GRIP CONTROL', caption: 'STICK · C BUTTONS · Z TRIGGER',
-      actions: [b('b','B',1,15,64,'green'),b('a','A',0,39,88,'blue'),b('cu','C↑',23,72,16,'yellow'),b('cl','C←',21,50,42,'yellow'),b('cr','C→',20,94,42,'yellow'),b('cd','C↓',22,72,68,'yellow')],
+      actions: [b('b','B',1,11,64,'green'),b('a','A',0,39,88,'blue'),b('cu','C↑',23,72,16,'yellow'),b('cl','C←',21,50,42,'yellow'),b('cr','C→',20,94,42,'yellow'),b('cd','C↓',22,72,68,'yellow')],
       shoulders: [['l','L',10],['r','R',11],['z','Z',12]], center: [['start','START',3]] },
     segaMS: { name: 'MASTER SYSTEM', sub: 'CONTROL PAD', caption: '8-BIT CONTROL',
       actions: [b('one','1',0,28,60,'ms-blue'),b('two','2',8,77,60,'ms-blue')], center: [] },
@@ -49,7 +49,19 @@
     held.clear(); directions.clear(); pointers.clear(); $('knob').style.transform = '';
     paint(); sendState();
   }
-  function setReady(value) { ready = value; pad.inert = !ready; pad.classList.toggle('is-ready', ready); if (!ready) clear(); }
+  function syncScreen() {
+    document.body.classList.toggle('playing', joined);
+    document.body.classList.toggle('controls-active', joined && !$('pairing').open);
+    const viewport = window.visualViewport;
+    document.documentElement.style.setProperty('--app-height', Math.round(viewport?.height || window.innerHeight) + 'px');
+    $('connection-settings').setAttribute('aria-expanded', String($('pairing').open));
+    pad.style.setProperty('--pad-height', pad.clientHeight + 'px');
+    pad.style.setProperty('--pad-width', pad.clientWidth + 'px');
+  }
+  function setReady(value) {
+    ready = value; pad.inert = !ready; pad.classList.toggle('is-ready', ready);
+    syncScreen(); if (!ready) clear();
+  }
   function makeButton(item, target) {
     const button = document.createElement('button');
     const { key, label, id, x, y, tone } = item;
@@ -83,7 +95,9 @@
     clear(); core = next;
     const theme = profiles[core] ? core : aliases[core] || 'snes';
     const profile = profiles[theme];
-    pad.dataset.console = theme; pad.setAttribute('aria-label', 'Manette ' + profile.name);
+    pad.dataset.console = theme; document.body.dataset.console = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.body).getPropertyValue('--surface').trim());
+    pad.setAttribute('aria-label', 'Manette ' + profile.name);
     $('console-name').textContent = profile.name; $('console-subtitle').textContent = profile.sub;
     $('pad-caption').textContent = profile.caption;
     $('actions').replaceChildren(); $('center-buttons').replaceChildren(); $('shoulders').replaceChildren();
@@ -159,7 +173,7 @@
         seat.querySelector('option[value="2"]').disabled = !modernRelay || data.maxPlayers !== 2;
         document.body.dataset.player = String(player);
         $('player-badge').textContent = 'JOUEUR ' + player; $('pad-player').textContent = 'J' + player;
-        $('pairing').open = false; status('Connecté · Joueur ' + player + ' · En attente du jeu', true);
+        $('pairing').open = false; syncScreen(); status('Connecté · Joueur ' + player + ' · En attente du jeu', true);
         sendState(); keepAwake();
       } else if (data.type === 'info') {
         if (core !== data.core) render(data.core);
@@ -192,7 +206,26 @@
     } catch (_) { status('Le plein écran n’est pas disponible ici. Tournez le téléphone en paysage.'); }
     keepAwake();
   };
+  $('connection-settings').onclick = () => {
+    clear(); $('pairing').open = !$('pairing').open; syncScreen();
+    if ($('pairing').open) codeInput.focus();
+  };
+  $('pairing').addEventListener('toggle', () => { clear(); syncScreen(); });
+  function isGameGesture(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('#pairing, .topbar, input, select, textarea')) return false;
+    return !!(target && pad.contains(target)) || (joined && !$('pairing').open);
+  }
+  // Les commandes sont traitées par Pointer Events. Empêcher le geste natif ne
+  // supprime donc pas les appuis, mais bloque le double-tap et le défilement Safari.
+  for (const type of ['touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend', 'dblclick']) {
+    document.addEventListener(type, event => {
+      if (isGameGesture(event) && event.cancelable) event.preventDefault();
+    }, { passive: false });
+  }
   pad.addEventListener('contextmenu', event => event.preventDefault());
+  window.addEventListener('resize', syncScreen);
+  window.visualViewport?.addEventListener('resize', syncScreen);
   document.addEventListener('visibilitychange', () => { clear(); if (!document.hidden) keepAwake(); });
   window.addEventListener('blur', clear); window.addEventListener('orientationchange', clear);
   window.addEventListener('pagehide', () => { running = false; clearTimeout(retryTimer); clear(); socket?.close(); });
@@ -201,10 +234,11 @@
     if (Date.now() - lastReply > 5000) { clear(); socket?.close(); return; }
     sendState(); if (++ticks % 10 === 0) send({ type:'ping' });
   }, 100);
-  render('segaMD');
+  render('segaMD'); syncScreen();
   const params = new URLSearchParams(location.search);
   codeInput.value = params.get('code') || '';
   seat.value = ['1','2'].includes(params.get('player')) ? params.get('player') : '0';
   if (/^\d{6}$/.test(codeInput.value)) connect();
 })();
+
 

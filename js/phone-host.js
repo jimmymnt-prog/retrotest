@@ -37,7 +37,7 @@
   const find = id => dialog.querySelector('#' + id);
   const setStatus = text => { find('remote-status').textContent = text; };
   let socket, retryTimer, active = false, attempts = 0, code = '', expires = 0;
-  let maxPlayers = 1, selected = 1, manager, lastReply = 0, ticks = 0;
+  let maxPlayers = 1, selected = 1, manager, lastReply = 0, ticks = 0, serverProtocol = 0;
   let connected = new Set();
   const pressed = [new Set(), new Set()], lastInput = [0, 0];
   const onePlayerCores = new Set(['gb', 'gbc', 'gba', 'segaGG']);
@@ -61,11 +61,13 @@
   }
   function render() {
     const handheld = onePlayerCores.has(gameInfo().core);
-    find('remote-two').disabled = handheld;
+    find('remote-two').disabled = handheld || serverProtocol === 1;
     find('remote-two').checked = maxPlayers === 2;
     find('remote-mode-note').textContent = handheld
       ? 'Une seule manette : le multijoueur par câble de cette console n’est pas pris en charge.'
-      : 'Le jeu doit proposer un mode deux joueurs sur le même écran. Activez-le dans son menu.';
+      : serverProtocol === 1
+        ? 'J1 disponible. Mettez le relais Render à jour pour activer deux manettes.'
+        : 'Le jeu doit proposer un mode deux joueurs sur le même écran. Activez-le dans son menu.';
     if (selected > maxPlayers) selected = 1;
     for (const player of [1, 2]) {
       const tab = find('remote-seat-' + player);
@@ -94,7 +96,7 @@
   function stop() {
     active = false; clearTimeout(retryTimer); retryTimer = null;
     releaseAll(); const previous = socket; socket = null; previous?.close();
-    connected.clear(); code = ''; expires = 0;
+    connected.clear(); code = ''; expires = 0; serverProtocol = 0;
     render();
   }
   function applyInput(data) {
@@ -130,11 +132,16 @@
       let data; try { data = JSON.parse(event.data); } catch (_) { return; }
       lastReply = Date.now();
       if (data.type === 'created') {
-        if (data.protocol !== 3) {
-          active = false; setStatus('Mettez aussi les nouveaux fichiers relay en ligne sur Render.'); current.close(); return;
+        if (!/^\d{6}$/.test(String(data.code || ''))) {
+          active = false; setStatus('Le relais a renvoyé un code invalide. Réessayez.'); current.close(); return;
         }
-        attempts = 0; code = data.code; expires = data.expires; maxPlayers = data.maxPlayers;
-        render(); send(gameInfo()); setStatus('Scannez le QR code pour connecter le joueur ' + selected + '.');
+        serverProtocol = Number(data.protocol) >= 3 ? 3 : 1;
+        attempts = 0; code = String(data.code); expires = data.expires;
+        maxPlayers = serverProtocol >= 3 && data.maxPlayers === 2 ? 2 : 1;
+        render(); send(gameInfo());
+        setStatus(serverProtocol >= 3
+          ? 'Scannez le QR code ou saisissez le code pour connecter le joueur ' + selected + '.'
+          : 'Code et QR code prêts pour J1. Le relais actuel accepte une seule manette.');
       } else if (data.type === 'roster') {
         connected = new Set(data.players); maxPlayers = data.maxPlayers; render();
       } else if (data.type === 'phone_connected') {
@@ -159,6 +166,9 @@
     };
   }
   function setMode(count) {
+    if (count === 2 && (serverProtocol === 1 || onePlayerCores.has(gameInfo().core))) {
+      maxPlayers = 1; render(); return;
+    }
     maxPlayers = count; if (maxPlayers === 1) release(2);
     send({ type: 'set_players', maxPlayers }); render();
   }
@@ -192,3 +202,4 @@
   }, 100);
   render();
 })();
+

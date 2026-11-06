@@ -2295,3 +2295,4 @@ var qrcode = function() {
 }(function () {
     return qrcode;
 }));
+

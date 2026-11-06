@@ -1,0 +1,61 @@
+RETROTEST — CORRECTIF CODE + QR (3.1)
+
+À appliquer APRÈS le pack RetroGaming-Manettes-Consoles-2-Joueurs.zip.
+Ce ZIP contient seulement les fichiers concernés par la correction.
+
+PROBLÈME CORRIGÉ
+Le script PC rejetait la réponse de l’ancien relais avant d’afficher le code et le QR.
+Désormais :
+- Ancien relais : code + QR utilisables pour J1 ; J2 désactivé avec une explication.
+- Relais protocole 3 : code + QR et deux téléphones distincts J1/J2.
+Le client mobile mis à jour accepte aussi l’ancien relais pour J1.
+Une demande J2 n’est jamais réattribuée silencieusement à J1 sur un ancien serveur.
+
+FICHIERS À COPIER DANS VOTRE DÉPÔT, AUX MÊMES EMPLACEMENTS
+- index.html
+- js/phone-host.js
+- js/vendor/qrcode.js (générateur de QR inclus pour éviter un fichier manquant)
+- relay/public/index.html
+- relay/public/controller.js
+Conservez tous les autres fichiers de la version précédente, notamment les CSS,
+le serveur relay/server.cjs et le package.json. Ne supprimez pas les dossiers existants.
+
+MISE EN LIGNE
+1. Copiez ces fichiers dans GitHub et enregistrez les modifications.
+2. Attendez la publication Vercel de https://retrotest.vercel.app.
+3. Rechargez le PC avec Ctrl + F5, lancez le jeu puis ouvrez les manettes.
+   Le code et le QR peuvent maintenant s’afficher même si Render est encore sur
+   son ancienne version. Le QR ouvre la manette avec le code déjà renseigné.
+   Sans scan, ouvrez le lien du relais et saisissez le même code manuellement.
+4. Les fichiers relay/public doivent aussi être publiés sur Render pour mettre
+   à jour son interface mobile. Attendez son déploiement puis fermez les anciennes
+   pages de manette sur les téléphones.
+
+ADRESSES CONSERVÉES
+Site PC : https://retrotest.vercel.app
+Manette et relais : https://retro-manette.onrender.com
+Aucune nouvelle variable ni aucun secret n’est nécessaire.
+
+POUR ACTIVER J2
+Le serveur de Render doit être celui du pack précédent, qui gère les deux places.
+Dans les réglages du service, vérifiez :
+- Dépôt : jimmymnt-prog/retrotest
+- Branche : main
+- Root Directory : relay
+- Build Command : npm install
+- Start Command : npm start
+- Le package.json lance node server.cjs (cjs, et non csj).
+Redéployez le dernier commit et attendez que Render indique Live.
+https://retro-manette.onrender.com/health doit alors renvoyer :
+{"status":"ok","protocol":3}
+Si cette adresse affiche encore simplement « ok », c’est toujours l’ancien serveur.
+Le correctif conserve alors J1 fonctionnel ; l’option J2 attend la mise à jour.
+
+TESTS EFFECTUÉS
+Deux serveurs Node/WebSocket réels locaux : ancien protocole et protocole 3.
+Navigateur Chromium : code à six chiffres visible, QR présent, lien du QR avec le
+bon code et joueur, saisie manuelle, connexion automatique depuis le lien du QR,
+commandes J1, fermeture du dialogue et refus d’une fausse attribution J2 sur l’ancien serveur.
+Régression protocole 3 : deux navigateurs mobiles, J1/J2 séparés, déconnexion et
+reconnexion de J2 sans couper J1, gestes simultanés, dix thèmes et quatre formats d’écran.
+Ces tests sont locaux ; aucun déploiement Render ou Vercel n’a été effectué par ce correctif.

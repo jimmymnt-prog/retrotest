@@ -149,8 +149,14 @@
       let data; try { data = JSON.parse(event.data); } catch (_) { return; }
       lastReply = Date.now();
       if (data.type === 'joined') {
-        if (data.protocol !== 3) { running = false; status('Le relais doit être mis à jour sur Render.'); current.close(); return; }
-        joined = true; attempts = 0; player = data.player; seat.value = String(player);
+        const modernRelay = Number(data.protocol) >= 3;
+        if (!modernRelay && Number(seat.value) === 2) {
+          running = false; status('Le relais actuel accepte J1 seulement. Mettez-le à jour pour connecter J2.');
+          $('pairing').open = true; current.close(); return;
+        }
+        joined = true; attempts = 0; player = modernRelay && data.player === 2 ? 2 : 1;
+        seat.value = String(player);
+        seat.querySelector('option[value="2"]').disabled = !modernRelay || data.maxPlayers !== 2;
         document.body.dataset.player = String(player);
         $('player-badge').textContent = 'JOUEUR ' + player; $('pad-player').textContent = 'J' + player;
         $('pairing').open = false; status('Connecté · Joueur ' + player + ' · En attente du jeu', true);
@@ -201,3 +207,4 @@
   seat.value = ['1','2'].includes(params.get('player')) ? params.get('player') : '0';
   if (/^\d{6}$/.test(codeInput.value)) connect();
 })();
+

@@ -1,4 +1,4 @@
-maj(() => {
+(() => {
   'use strict';
   const $ = id => document.getElementById(id);
   const pad = $('pad'), codeInput = $('code'), seat = $('seat');
@@ -240,5 +240,6 @@ maj(() => {
   seat.value = ['1','2'].includes(params.get('player')) ? params.get('player') : '0';
   if (/^\d{6}$/.test(codeInput.value)) connect();
 })();
+
 
 

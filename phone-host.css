@@ -1,0 +1,15 @@
+#remote-button{padding:6px 11px;border:1px solid #347daa;border-radius:10px;background:#103349;color:#b9eeff;font:600 11px system-ui;cursor:pointer;white-space:nowrap;flex-shrink:0}
+#emu-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#remote-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(510px,94vw);max-height:94dvh;overflow:auto;padding:28px;border:1px solid #345166;border-radius:22px;background:#0d1929;color:#d9ecff;font:14px/1.5 system-ui;text-align:center;box-shadow:0 24px 100px #0009}
+#remote-dialog::backdrop{background:#020712c9;backdrop-filter:blur(5px)}
+#remote-dialog *{box-sizing:border-box}#remote-dialog h2{font-size:27px;letter-spacing:-.8px;margin:4px 0 10px;color:#f1f8fc}#remote-dialog p{margin:10px 0}#remote-dialog button{font:600 12px system-ui;color:#d9ecff;cursor:pointer}
+#remote-dialog .remote-eyebrow{font-size:10px;letter-spacing:2.5px;color:#79d3e5;margin:0}
+#remote-dialog .remote-intro{font-size:13px;color:#9ab4c8;margin-bottom:18px}#remote-dialog .remote-close{position:absolute;right:14px;top:10px;font-size:26px;background:none;border:0;color:#99b6c9;padding:0 7px}
+.remote-mode{display:flex;align-items:center;justify-content:center;gap:9px;padding:12px;background:#162b3e;border:1px solid #27445d;border-radius:10px;font-weight:600;font-size:13px}.remote-mode input{accent-color:#70d2e9;width:17px;height:17px}
+#remote-mode-note{display:block;color:#829fb6;font-size:11px;margin:8px 0 15px}
+.remote-tabs{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}.remote-tabs button{background:#122236;border:1px solid #29435b;border-radius:12px;padding:10px}.remote-tabs button[aria-selected=true]{background:#16435a;border-color:#74d5e9}.remote-tabs button:disabled{opacity:.35;cursor:default}.remote-tabs span{display:block;margin-top:3px;color:#91b6c9;font-size:10px;font-weight:400}
+#remote-panel{padding:10px 15px 15px;background:#09121f;border:1px solid #21354b;border-radius:15px}#remote-selected{font-size:12px;color:#a8cbdc}
+#remote-qr{max-width:205px;background:white;margin:12px auto;border-radius:8px;overflow:hidden}#remote-qr:empty{display:none}#remote-qr svg{display:block;width:100%;height:auto}
+#remote-address{font-size:12px;color:#80dbed;overflow-wrap:anywhere}#remote-code{font-size:35px;letter-spacing:7px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.4;margin-top:10px}#remote-expiry{font-size:10px;color:#829fb6}
+#remote-status{font-size:12px;min-height:18px;color:#a9dcd6}#remote-new{padding:10px 16px;border:1px solid #345973;border-radius:9px;background:#172f43}
+#remote-dialog .remote-footnote{display:block;margin-top:12px;font-size:10px;color:#7793aa}

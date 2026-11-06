@@ -1,0 +1,88 @@
+RETROTEST — MANETTES CONSOLES ET DEUX JOUEURS
+
+Ce ZIP contient seulement 7 fichiers du site à ajouter/remplacer et cette notice.
+Base : dépôt jimmymnt-prog/retrotest, commit aa299f58961d58c86e253cfce7accde91a6e6ac6.
+Les dossiers de jeux, images, coeurs d’émulation et les autres fichiers restent à conserver.
+
+FICHIERS
+- index.html : scripts chargés une seule fois (catalogue, QR, manette).
+- phone-host.css : NOUVEAU fichier, style de la fenêtre de connexion sur le PC.
+- js/phone-host.js : fenêtre fermée à la connexion, places J1/J2 et commandes distinctes.
+- relay/server.cjs : relais pour deux téléphones, commandes et déconnexions séparées.
+- relay/public/index.html : interface de connexion et manette tactile.
+- relay/public/controller.css : dix styles et dispositions de consoles.
+- relay/public/controller.js : commandes tactiles, choix du joueur et adaptation à la console.
+
+INSTALLATION
+1. Décompressez le ZIP et copiez ces fichiers dans votre dépôt à leurs chemins exacts.
+   Fusionnez les dossiers : ne supprimez pas le contenu existant de js ou de relay.
+   Remplacez les fichiers de même nom. La notice n’a pas besoin d’être publiée.
+2. Enregistrez les modifications dans GitHub, idéalement dans un seul commit.
+3. Attendez le redéploiement de Vercel ET celui du service Render.
+   Si Render ne se redéploie pas automatiquement : Manual Deploy > Deploy latest commit.
+4. Contrôle du relais : ouvrez https://retro-manette.onrender.com/health
+   La réponse doit contenir « protocol » : 3. Si elle affiche seulement « ok »,
+   le nouveau serveur n’a pas encore été déployé.
+5. Rechargez le site PC (Ctrl + F5) et reconnectez les téléphones avec le nouveau QR.
+   Fermez les anciennes pages de manette ouvertes avant la mise à jour.
+
+CONFIGURATION CONSERVÉE
+Site de jeux : https://retrotest.vercel.app
+Relais et manette : https://retro-manette.onrender.com
+Render : Root Directory = relay ; Build = npm install ; Start = npm start.
+Variables : ALLOWED_ORIGINS = https://retrotest.vercel.app ; TRUST_PROXY = 1.
+Aucun nouveau service, abonnement, secret ou réglage Render n’est nécessaire.
+Le package.json existant et la bibliothèque QR existante sont conservés.
+
+JOUER SEUL
+Lancez le jeu, puis « Jouer avec mon téléphone ». Scannez le QR de J1.
+La fenêtre du PC se ferme automatiquement dès que le téléphone est associé.
+Pour la rouvrir, cliquez sur le bouton de manettes de la barre du jeu.
+
+JOUER À DEUX SUR LE MÊME ÉCRAN
+1. Ouvrez la fenêtre des manettes sur le PC.
+2. Cochez « Activer une deuxième manette ».
+3. Connectez le premier téléphone au QR de Joueur 1.
+4. Rouvrez la fenêtre et sélectionnez Joueur 2 pour connecter le second téléphone.
+   La fenêtre se ferme à nouveau après sa connexion.
+   Les deux QR utilisent la même partie, mais réservent des places différentes.
+5. Dans le jeu, choisissez son mode deux joueurs. Ce choix n’est pas automatique.
+
+Sans QR : ouvrez l’adresse du relais sur le téléphone, entrez le code et choisissez
+Joueur 1, Joueur 2 ou Place libre. Deux téléphones ne peuvent pas occuper la même place.
+Chaque téléphone peut utiliser un réseau différent (Wi-Fi ou 4G/5G).
+Déconnecter J2 relâche uniquement les touches de J2 et conserve J1 connecté.
+Le bouton « Nouveau code » déconnecte les deux téléphones pour recréer une session.
+
+COMPATIBILITÉ ET PRÉSENTATION
+Palettes et dispositions : Mega Drive (6 boutons), NES, Super Nintendo (couleurs),
+PlayStation (symboles et L1/L2/R1/R2), Nintendo 64 (croix, stick, C et Z),
+Master System, Game Boy, Game Boy Color, Game Boy Advance et Game Gear.
+La version Color est reconnue quand le coeur ou le nom de ROM permet de l’identifier.
+Le stick N64 commande huit directions à pleine amplitude, sans dosage analogique.
+La manette PlayStation représente le modèle numérique, sans sticks analogiques.
+
+Le mode J2 est disponible sur les consoles de salon, mais nécessite un jeu qui prend
+en charge deux joueurs sur le même écran. Il ne détecte pas automatiquement les jeux
+compatibles et ne transforme pas un jeu solo en jeu multijoueur.
+Les consoles portables GB/GBC/GBA/Game Gear restent à une seule manette : leur liaison
+entre plusieurs consoles n’est pas émulée par ce relais.
+Il s’agit de deux manettes pour une partie sur un même PC/écran, sans jeu en ligne
+synchronisé entre deux PC. Cette autre fonctionnalité n’a pas été ajoutée.
+
+Le code est valable 15 minutes pour rejoindre la partie. Une partie déjà connectée
+continue après ce délai (durée maximale de session : 4 heures). Après expiration,
+utilisez Nouveau code pour associer à nouveau les téléphones.
+
+VÉRIFICATIONS
+Tests réseau réels locaux avec le serveur Node/WebSocket : deux places indépendantes,
+reconnexion, troisième téléphone refusé, entrées invalides rejetées, expiration,
+origines autorisées, désactivation de J2 et relâchement séparé des touches.
+Tests dans Chromium avec deux navigateurs mobiles indépendants et une page PC :
+un seul bouton, QR J1/J2, fermeture automatique après chaque association,
+commandes vers les index 0 et 1 de l’interface EmulatorJS, contacts tactiles simultanés,
+diagonales, déconnexion/reconnexion de J2 sans couper J1.
+Dix thèmes contrôlés en portrait et paysage, en 390×844 / 844×390 et 320×740 / 667×375.
+Pas d’erreur JavaScript ni de chevauchement des boutons détectés dans ces formats.
+Le rendu a été vérifié visuellement.
+Le test d’une vraie ROM avec deux téléphones physiques reste à faire après déploiement.

@@ -6,6 +6,53 @@
   if (!frame || !bar || window.__retroPhoneHostV3) return;
   window.__retroPhoneHostV3 = true;
 
+  const relayUrl = new URL('/ws', RELAY_HTTP);
+  relayUrl.protocol = relayUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+
+  function checkRelay(timeout) {
+    return new Promise(resolve => {
+      const probe = new WebSocket(relayUrl);
+      function finish(ready) {
+        clearTimeout(timer);
+        probe.onopen = probe.onerror = probe.onclose = null;
+        probe.close();
+        resolve(ready);
+      }
+      const timer = setTimeout(() => finish(false), timeout);
+      probe.onopen = () => finish(true);
+      probe.onerror = probe.onclose = () => finish(false);
+    });
+  }
+
+  const wakeButton = document.getElementById('render-wake');
+  if (wakeButton) {
+    wakeButton.onclick = async () => {
+      wakeButton.disabled = true;
+      wakeButton.dataset.state = 'starting';
+      wakeButton.textContent = 'Render démarre…';
+      const deadline = Date.now() + 100000;
+      try {
+        while (Date.now() < deadline) {
+          if (await checkRelay(Math.min(15000, deadline - Date.now()))) {
+            wakeButton.dataset.state = 'ready';
+            wakeButton.textContent = 'Render prêt ✓';
+            return;
+          }
+          const pause = Math.max(0, Math.min(2000, deadline - Date.now()));
+          await new Promise(resolve => setTimeout(resolve, pause));
+        }
+      } catch (_) {
+        // Le bouton permet une nouvelle tentative après une erreur de connexion.
+      } finally {
+        wakeButton.disabled = false;
+        if (wakeButton.dataset.state !== 'ready') {
+          wakeButton.dataset.state = 'error';
+          wakeButton.textContent = 'Réessayer Render';
+        }
+      }
+    };
+  }
+
   const button = document.createElement('button');
   button.id = 'remote-button'; button.type = 'button';
   button.textContent = '📱 Jouer avec mon téléphone';
@@ -121,8 +168,7 @@
     if (fresh) attempts = 0;
     if (onePlayerCores.has(gameInfo().core)) maxPlayers = 1;
     render(); setStatus('Connexion au relais…');
-    const url = new URL('/ws', RELAY_HTTP); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    const current = new WebSocket(url); socket = current; lastReply = Date.now();
+    const current = new WebSocket(relayUrl); socket = current; lastReply = Date.now();
     current.onopen = () => {
       if (socket !== current) return;
       lastReply = Date.now(); send({ type: 'create', protocol: 3, maxPlayers });
@@ -202,4 +248,5 @@
   }, 100);
   render();
 })();
+
 

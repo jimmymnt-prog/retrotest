@@ -14,11 +14,13 @@
       display: flex; flex-direction: column;
     }
     #topnav {
-      flex: 0 0 37px;
+      flex: 0 0 auto;
+      min-height: 37px;
       background: #070712;
       border-bottom: 1px solid #0d1f36;
       display: flex; align-items: center;
-      padding: 0 10px; gap: 2px;
+      padding: 4px 10px; gap: 4px;
+      flex-wrap: wrap;
       overflow: hidden;
     }
     .tnav-link {
@@ -43,6 +45,9 @@
       transition: color .15s, background .15s, border-color .15s;
     }
     .tnav-rate:hover { color: #ffd060; border-color: #b07000; background: rgba(120,70,0,0.4); }
+    #render-wake { cursor: pointer; color: #a7deff; border-color: #296086; background: #0a2438; }
+    #render-wake:disabled { cursor: wait; }
+    #render-wake[data-state="ready"] { color: #9ee0b3; border-color: #3d7955; background: #122d24; }
     #toolbar {
       flex: 0 0 38px;
       background: #0e0e1c;
@@ -221,6 +226,7 @@
   <header id="topnav">
     <div class="tnav-link tnav-active" style="cursor:default">100 Offline Games · Multi-Console</div>
     <div class="tnav-sep"></div>
+    <button id="render-wake" class="tnav-rate" type="button" aria-live="polite">Réveiller Render</button>
     <button id="local-rom-btn" class="tnav-rate" type="button">+ Charger un jeu depuis le PC</button>
   </header>
   <nav id="toolbar">
@@ -294,7 +300,8 @@
   </div>
   <script src="js/popup.js"></script>
   <script src="js/vendor/qrcode.js?v=3.1"></script>
-  <script src="js/phone-host.js?v=3.1"></script>
+  <script src="js/phone-host.js?v=3.2"></script>
 </body>
 </html>
+
 

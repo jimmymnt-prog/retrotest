@@ -57,6 +57,10 @@
   button.id = 'remote-button'; button.type = 'button';
   button.textContent = '📱 Jouer avec mon téléphone';
   bar.insertBefore(button, document.getElementById('perf-badge'));
+  const stopShare = document.createElement('button');
+  stopShare.id = 'online-stop'; stopShare.type = 'button'; stopShare.hidden = true;
+  stopShare.textContent = 'Arrêter le partage';
+  bar.insertBefore(stopShare, document.getElementById('perf-badge'));
   const dialog = document.createElement('dialog');
   dialog.id = 'remote-dialog';
   dialog.innerHTML = `
@@ -64,6 +68,14 @@
     <p class="remote-eyebrow">MANETTES TÉLÉPHONE</p>
     <h2>À vous de jouer.</h2>
     <p class="remote-intro">Un téléphone par joueur. Scannez le QR code ou ouvrez le lien et saisissez le code.</p>
+    <section class="online-invitation" aria-label="Partie en ligne">
+      <button id="online-invite" type="button">Inviter un ami</button>
+      <p id="online-status" role="status"></p>
+      <div id="online-link-box" hidden>
+        <input id="online-link" aria-label="Lien d’invitation J2" readonly>
+        <button id="online-copy" type="button">Copier le lien</button>
+      </div>
+    </section>
     <label class="remote-mode"><input id="remote-two" type="checkbox"> Activer une deuxième manette</label>
     <small id="remote-mode-note">Choisissez aussi le mode deux joueurs dans le jeu.</small>
     <div class="remote-tabs" role="tablist" aria-label="Manette à connecter">
@@ -86,6 +98,8 @@
   let socket, retryTimer, active = false, attempts = 0, code = '', expires = 0;
   let maxPlayers = 1, selected = 1, manager, lastReply = 0, ticks = 0, serverProtocol = 0;
   let connected = new Set();
+  let onlineSupported = false, sharing = null, peer = null, inviteUrl = '', iceServers = [];
+  let selectingTab = false, inviteTimer;
   const pressed = [new Set(), new Set()], lastInput = [0, 0];
   const onePlayerCores = new Set(['gb', 'gbc', 'gba', 'segaGG']);
 
@@ -116,11 +130,16 @@
         ? 'J1 disponible. Mettez le relais Render à jour pour activer deux manettes.'
         : 'Le jeu doit proposer un mode deux joueurs sur le même écran. Activez-le dans son menu.';
     if (selected > maxPlayers) selected = 1;
+    find('online-invite').disabled = !code || !onlineSupported || handheld || connected.has(2) || !!sharing || selectingTab;
+    find('online-link-box').hidden = !inviteUrl;
+    find('online-link').value = inviteUrl;
+    find('remote-panel').hidden = selected === 2 && !!inviteUrl;
+    stopShare.hidden = !sharing;
     for (const player of [1, 2]) {
       const tab = find('remote-seat-' + player);
       tab.disabled = player > maxPlayers;
       tab.setAttribute('aria-selected', String(selected === player));
-      find('remote-state-' + player).textContent = connected.has(player) ? 'Connecté ✓' : player > maxPlayers ? 'Désactivé' : 'À connecter';
+      find('remote-state-' + player).textContent = connected.has(player) ? 'Connecté ✓' : player === 2 && inviteUrl ? 'Invitation en ligne' : player > maxPlayers ? 'Désactivé' : 'À connecter';
     }
     find('remote-selected').textContent = 'Connecter le joueur ' + selected;
     find('remote-panel').setAttribute('aria-labelledby', 'remote-seat-' + selected);
@@ -140,8 +159,93 @@
       svg?.setAttribute('role', 'img'); svg?.setAttribute('aria-label', 'QR code pour le joueur ' + selected);
     }
   }
+  function closePeer() {
+    peer?.close(); peer = null;
+  }
+  function stopOnline(message = '', notifyRelay = true) {
+    clearTimeout(inviteTimer);
+    if (sharing && notifyRelay) send({ type: 'online_stop' });
+    closePeer();
+    sharing?.getTracks().forEach(track => track.stop());
+    sharing = null; inviteUrl = ''; iceServers = [];
+    find('online-status').textContent = message;
+    render();
+  }
+  async function inviteFriend() {
+    if (!navigator.mediaDevices?.getDisplayMedia || !window.RTCPeerConnection) {
+      find('online-status').textContent = 'Ouvrez RetroTest sur un navigateur PC compatible avec le partage d’onglet.';
+      return;
+    }
+    if (!gameInfo().ready) {
+      find('online-status').textContent = 'Attendez que le jeu soit chargé.';
+      return;
+    }
+    const session = socket;
+    selectingTab = true; render();
+    find('online-status').textContent = 'Choisissez l’onglet RetroTest et cochez le partage du son.';
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 30, max: 30 }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true, preferCurrentTab: true, surfaceSwitching: 'exclude'
+      });
+      const track = stream.getVideoTracks()[0];
+      const surface = track?.getSettings().displaySurface;
+      if (session !== socket || socket?.readyState !== WebSocket.OPEN || !track || (surface && surface !== 'browser')) {
+        stream.getTracks().forEach(item => item.stop());
+        find('online-status').textContent = 'Relancez l’invitation en choisissant l’onglet RetroTest.';
+        return;
+      }
+      sharing = stream;
+      track.addEventListener('ended', () => stopOnline('Partage terminé.'), { once: true });
+      send({ type: 'online_start' });
+      inviteTimer = setTimeout(() => stopOnline('Le relais n’a pas confirmé l’invitation. Réessayez.'), 8000);
+    } catch (_) {
+      find('online-status').textContent = 'Partage annulé ou indisponible. Réessayez depuis le PC.';
+    } finally {
+      selectingTab = false; render();
+    }
+  }
+  async function sendOffer() {
+    closePeer();
+    if (!sharing) return;
+    let current;
+    try {
+      current = new RTCPeerConnection({ iceServers }); peer = current;
+      for (const track of sharing.getTracks()) current.addTrack(track, sharing);
+      await current.setLocalDescription(await current.createOffer());
+      await waitForIce(current);
+      if (peer === current) send({ type: 'online_signal', kind: 'offer', sdp: current.localDescription.sdp });
+    } catch (_) {
+      if (!current || peer === current) stopOnline('La connexion vidéo a échoué. Créez une nouvelle invitation.');
+    }
+  }
+  function waitForIce(connection) {
+    return new Promise(resolve => {
+      function finish() {
+        clearTimeout(timer);
+        connection.removeEventListener('icegatheringstatechange', changed);
+        resolve();
+      }
+      function changed() { if (connection.iceGatheringState === 'complete') finish(); }
+      const timer = setTimeout(finish, 8000);
+      connection.addEventListener('icegatheringstatechange', changed);
+      changed();
+    });
+  }
+  find('online-invite').onclick = inviteFriend;
+  find('online-copy').onclick = async () => {
+    find('online-link').select();
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      find('online-status').textContent = 'Lien copié. Envoyez-le à votre ami.';
+    } catch (_) {
+      find('online-status').textContent = 'Lien sélectionné. Copiez-le avec Ctrl + C.';
+    }
+  };
+  stopShare.onclick = () => stopOnline('Partage terminé.');
   function stop() {
     active = false; clearTimeout(retryTimer); retryTimer = null;
+    stopOnline(); onlineSupported = false;
     releaseAll(); const previous = socket; socket = null; previous?.close();
     connected.clear(); code = ''; expires = 0; serverProtocol = 0;
     render();
@@ -182,19 +286,39 @@
           active = false; setStatus('Le relais a renvoyé un code invalide. Réessayez.'); current.close(); return;
         }
         serverProtocol = Number(data.protocol) >= 3 ? 3 : 1;
+        onlineSupported = data.online === true;
+        if (!onlineSupported) find('online-status').textContent = 'Mettez le relais Render à jour pour les invitations.';
         attempts = 0; code = String(data.code); expires = data.expires;
         maxPlayers = serverProtocol >= 3 && data.maxPlayers === 2 ? 2 : 1;
         render(); send(gameInfo());
         setStatus(serverProtocol >= 3
           ? 'Scannez le QR code ou saisissez le code pour connecter le joueur ' + selected + '.'
           : 'Code et QR code prêts pour J1. Le relais actuel accepte une seule manette.');
+      } else if (data.type === 'online_invite' && sharing) {
+        clearTimeout(inviteTimer);
+        iceServers = data.iceServers;
+        const link = new URL('/online', RELAY_HTTP);
+        link.hash = new URLSearchParams({ code, token: data.token }).toString();
+        inviteUrl = link.href;
+        find('online-status').textContent = sharing.getAudioTracks().length
+          ? 'Invitation prête pour J2.' : 'Invitation prête pour J2. Le navigateur partage la vidéo seule.';
+        render();
+      } else if (data.type === 'online_error') {
+        stopOnline(data.message);
+      } else if (data.type === 'online_signal' && data.kind === 'answer' && peer) {
+        const currentPeer = peer;
+        currentPeer.setRemoteDescription({ type: 'answer', sdp: data.sdp }).catch(() => {
+          if (peer === currentPeer) stopOnline('Réponse vidéo invalide. Créez une nouvelle invitation.');
+        });
       } else if (data.type === 'roster') {
         connected = new Set(data.players); maxPlayers = data.maxPlayers; render();
       } else if (data.type === 'phone_connected') {
         connected.add(data.player || 1); render();
         setStatus('Joueur ' + (data.player || 1) + ' connecté.');
         if (dialog.open) dialog.close();
+        if (data.online) sendOffer();
       } else if (data.type === 'phone_disconnected') {
+        if (data.player === 2) closePeer();
         connected.delete(data.player || 1); release(data.player || 1); render();
         setStatus('Joueur ' + (data.player || 1) + ' déconnecté. Vous pouvez reconnecter cette place.');
       } else if (data.type === 'input') applyInput(data);
@@ -203,7 +327,7 @@
     current.onerror = () => {};
     current.onclose = () => {
       if (socket !== current) return;
-      socket = null; releaseAll(); connected.clear(); code = ''; render();
+      socket = null; stopOnline('', false); releaseAll(); connected.clear(); code = ''; render();
       if (!active) return;
       if (attempts++ < 5) {
         setStatus('Connexion perdue. Reconnexion au relais…');
@@ -215,6 +339,7 @@
     if (count === 2 && (serverProtocol === 1 || onePlayerCores.has(gameInfo().core))) {
       maxPlayers = 1; render(); return;
     }
+    if (count === 1 && sharing) stopOnline('Partage terminé.');
     maxPlayers = count; if (maxPlayers === 1) release(2);
     send({ type: 'set_players', maxPlayers }); render();
   }

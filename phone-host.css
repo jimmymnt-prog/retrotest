@@ -13,3 +13,12 @@
 #remote-address{font-size:12px;color:#80dbed;overflow-wrap:anywhere}#remote-code{font-size:35px;letter-spacing:7px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.4;margin-top:10px}#remote-expiry{font-size:10px;color:#829fb6}
 #remote-status{font-size:12px;min-height:18px;color:#a9dcd6}#remote-new{padding:10px 16px;border:1px solid #345973;border-radius:9px;background:#172f43}
 #remote-dialog .remote-footnote{display:block;margin-top:12px;font-size:10px;color:#7793aa}
+
+
+#online-stop { flex-shrink: 0; padding: 6px 10px; border: 1px solid #ab625e; border-radius: 8px; background: #391c22; color: #ffd3d1; cursor: pointer; }
+.online-invitation { margin: 12px 0; padding: 12px; border: 1px solid #294b63; border-radius: 10px; text-align: left; }
+.online-invitation p { margin: 8px 0 0; color: #acd3e4; font-size: 12px; }
+.online-invitation button { padding: 7px 10px; background: #17445e; border: 1px solid #497b93; border-radius: 7px; color: #eaf8ff; cursor: pointer; }
+.online-invitation button:disabled { opacity: .45; cursor: default; }
+#online-link-box:not([hidden]) { display: flex; gap: 8px; margin-top: 8px; }
+#online-link { min-width: 0; flex: 1; border: 1px solid #385469; background: #142230; color: #eaf8ff; border-radius: 6px; padding: 6px; }

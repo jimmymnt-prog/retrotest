@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>RetroTest · Partie en ligne</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#090f18;color:#e9f3fc;font:16px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:22px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h1{font-size:clamp(22px,4vw,33px);margin:0}p{line-height:1.5;color:#b0c8dc}.badge{padding:6px 10px;border-radius:6px;background:#234c65;color:#dbf4ff;font-weight:700}video{display:block;width:100%;aspect-ratio:16/9;max-height:72dvh;object-fit:contain;background:#020407;border:1px solid #263b4d;border-radius:10px}button{margin:0 8px 10px 0;padding:10px 14px;background:#173d55;color:#eaf8ff;border:1px solid #476d83;border-radius:7px;cursor:pointer;font:inherit}button:disabled{opacity:.5;cursor:default}details{margin-top:12px}summary{cursor:pointer}kbd{padding:2px 6px;border:1px solid #426078;border-radius:4px;color:#e9f3fc}
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1 id="game-title">Partie RetroTest</h1><span class="badge">Joueur 2</span></header>
+    <p id="status" role="status" aria-live="polite">Rejoignez la partie pour recevoir le jeu en direct.</p>
+    <button id="join" type="button">Rejoindre la partie</button>
+    <button id="sound" type="button" disabled>Activer le son</button>
+    <button id="fullscreen" type="button" disabled>Plein écran</button>
+    <video id="game" autoplay muted playsinline aria-label="Partie partagée en direct"></video>
+    <details open><summary>Commandes de J2</summary><p id="keys">Utilisez les flèches et les touches indiquées lorsque le jeu est chargé. Vous pouvez aussi brancher une manette compatible.</p></details>
+  </main>
+  <script src="/online.js?v=1" defer></script>
+</body>
+</html>

@@ -8,6 +8,13 @@
   <style>
     *{box-sizing:border-box}body{margin:0;background:#090f18;color:#e9f3fc;font:16px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:22px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h1{font-size:clamp(22px,4vw,33px);margin:0}p{line-height:1.5;color:#b0c8dc}.badge{padding:6px 10px;border-radius:6px;background:#234c65;color:#dbf4ff;font-weight:700}video{display:block;width:100%;aspect-ratio:16/9;max-height:72dvh;object-fit:contain;background:#020407;border:1px solid #263b4d;border-radius:10px}button{margin:0 8px 10px 0;padding:10px 14px;background:#173d55;color:#eaf8ff;border:1px solid #476d83;border-radius:7px;cursor:pointer;font:inherit}button:disabled{opacity:.5;cursor:default}details{margin-top:12px}summary{cursor:pointer}kbd{padding:2px 6px;border:1px solid #426078;border-radius:4px;color:#e9f3fc}
   </style>
+  <style>
+    #input-mode{margin:0 8px 10px;padding:8px;background:#173d55;color:#eaf8ff;border:1px solid #476d83;border-radius:7px;font:inherit}
+    #phone-pairing{margin:0 0 14px;padding:12px 16px;border:1px solid #426078;border-radius:8px}
+    #phone-qr svg{display:block;width:min(180px,100%);height:auto;margin:8px 0;background:white}
+    #phone-link{color:#8ce2ff}
+    #phone-status{margin:0 0 8px}
+  </style>
 </head>
 <body>
   <main>
@@ -16,9 +23,20 @@
     <button id="join" type="button">Rejoindre la partie</button>
     <button id="sound" type="button" disabled>Activer le son</button>
     <button id="fullscreen" type="button" disabled>Plein écran</button>
+    <label for="input-mode">Commandes J2</label>
+    <select id="input-mode" disabled>
+      <option value="local">Clavier / manette USB ou Bluetooth</option>
+      <option value="phone" disabled>Téléphone (QR code)</option>
+    </select>
+    <section id="phone-pairing" aria-label="Manette téléphone J2" hidden>
+      <p id="phone-status" role="status"></p>
+      <div id="phone-qr"></div>
+      <a id="phone-link" target="_blank" rel="noopener" hidden>Ouvrir le lien de la manette J2</a>
+    </section>
     <video id="game" autoplay muted playsinline aria-label="Partie partagée en direct"></video>
     <details open><summary>Commandes de J2</summary><p id="keys">Utilisez les flèches et les touches indiquées lorsque le jeu est chargé. Vous pouvez aussi brancher une manette compatible.</p></details>
   </main>
-  <script src="/online.js?v=1" defer></script>
+  <script src="/qrcode.js" defer></script>
+  <script src="/online.js?v=2" defer></script>
 </body>
 </html>

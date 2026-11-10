@@ -2,6 +2,8 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const video = $('game');
+  const inputMode = $('input-mode');
+  const phoneOption = inputMode.querySelector('option[value="phone"]');
   const invite = new URLSearchParams(location.hash.slice(1));
   const code = invite.get('code'), token = invite.get('token');
   const layouts = {
@@ -60,7 +62,7 @@
     return inputs;
   }
   function sendInputs() {
-    if (!joined) return;
+    if (!joined || inputMode.value !== 'local') return;
     const enabled = watching && gameReady && !document.hidden && document.hasFocus();
     const buttons = enabled ? [...new Set([...held].map(key => keyMap.get(key)).concat(gamepadInputs()))] : [];
     send({ type: 'state', buttons });
@@ -69,6 +71,31 @@
     held.clear();
     if (joined) send({ type: 'state', buttons: [] });
   }
+  function resetPhonePairing() {
+    $('phone-pairing').hidden = true;
+    $('phone-link').hidden = true;
+    $('phone-link').removeAttribute('href');
+    $('phone-qr').replaceChildren();
+  }
+  function setPhoneStatus(connected) {
+    $('phone-status').textContent = connected
+      ? 'Téléphone connecté · Joueur 2'
+      : 'Scannez ce QR code avec le téléphone qui servira de manette J2.';
+    $('phone-qr').hidden = connected;
+    $('phone-link').hidden = connected || !$('phone-link').hasAttribute('href');
+  }
+  inputMode.onchange = () => {
+    release();
+    if (inputMode.value === 'phone') {
+      $('phone-pairing').hidden = false;
+      $('phone-status').textContent = 'Création du QR code…';
+      send({ type: 'online_phone_enable' });
+    } else {
+      send({ type: 'online_phone_disable' });
+      resetPhonePairing();
+    }
+    inputMode.blur();
+  };
   function waitForIce(connection) {
     return new Promise(resolve => {
       function finish() {
@@ -122,6 +149,8 @@
     const previous = socket; socket = null; previous?.close();
     peer?.close(); peer = null; video.srcObject = null;
     watching = joined = gameReady = false; error = ''; clearInterval(timer);
+    inputMode.value = 'local'; inputMode.disabled = true; phoneOption.disabled = true;
+    resetPhonePairing();
     $('join').disabled = true; $('sound').disabled = true; $('fullscreen').disabled = true;
     status('Connexion à la partie…');
     const url = new URL('/ws', location.href); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -135,7 +164,26 @@
       let data; try { data = JSON.parse(event.data); } catch (_) { return; }
       lastReply = Date.now();
       if (data.type === 'joined') joined = data.player === 2;
-      if (data.type === 'online_ready') { iceServers = data.iceServers; status('Réception de la vidéo…'); }
+      if (data.type === 'online_ready') {
+        iceServers = data.iceServers;
+        inputMode.disabled = false; phoneOption.disabled = data.phone !== true;
+        status('Réception de la vidéo…');
+      }
+      if (data.type === 'online_phone_pairing' && inputMode.value === 'phone') {
+        const link = new URL('/', location.origin);
+        link.hash = new URLSearchParams({ code, phone: data.token }).toString();
+        $('phone-link').href = link.href;
+        if (window.qrcode) {
+          const qr = window.qrcode(0, 'M');
+          qr.addData(link.href); qr.make();
+          $('phone-qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+          const svg = $('phone-qr').querySelector('svg');
+          svg.setAttribute('role', 'img');
+          svg.setAttribute('aria-label', 'QR code de la manette téléphone J2');
+        }
+        setPhoneStatus(data.connected);
+      }
+      if (data.type === 'online_phone_status' && inputMode.value === 'phone') setPhoneStatus(data.connected);
       if (data.type === 'online_signal' && data.kind === 'offer') answer(data.sdp);
       if (data.type === 'info') {
         if (core !== data.core) configure(data.core);
@@ -147,6 +195,7 @@
     current.onclose = () => {
       if (socket !== current) return;
       clearInterval(timer); release(); joined = watching = false;
+      inputMode.disabled = true; inputMode.value = 'local'; resetPhonePairing();
       peer?.close(); peer = null; video.srcObject = null;
       $('join').disabled = false; $('join').textContent = 'Réessayer';
       $('sound').disabled = true; $('fullscreen').disabled = true;
@@ -167,7 +216,8 @@
   const keyName = event => event.key.length === 1 ? event.key.toLowerCase() : event.key;
   window.addEventListener('keydown', event => {
     const key = keyName(event);
-    if (!watching || !gameReady || event.ctrlKey || event.metaKey || event.altKey || !keyMap.has(key)) return;
+    if (!watching || !gameReady || inputMode.value !== 'local' || event.ctrlKey || event.metaKey || event.altKey || !keyMap.has(key)) return;
+    if (event.target === inputMode) return;
     if (event.key === 'Enter' && event.target instanceof HTMLButtonElement && !event.target.disabled) return;
     event.preventDefault(); held.add(key); sendInputs();
   });

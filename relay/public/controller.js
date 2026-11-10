@@ -156,7 +156,10 @@
     status('Connexion à la partie…');
     current.onopen = () => {
       if (socket !== current) return;
-      lastReply = Date.now(); send({ type:'join', protocol:3, code, player: Number(seat.value) });
+      lastReply = Date.now();
+      send(phoneToken
+        ? { type: 'join_online_phone', code, token: phoneToken }
+        : { type: 'join', protocol: 3, code, player: Number(seat.value) });
     };
     current.onmessage = event => {
       if (socket !== current) return;
@@ -191,7 +194,11 @@
       socket = null; joined = false; setReady(false); wakeLock?.release();
       document.body.dataset.player = '0'; $('player-badge').textContent = 'HORS LIGNE';
       if (!running) return;
-      if ([1000,1008].includes(event.code)) { running = false; status('Session fermée. Saisissez un nouveau code du PC.'); $('pairing').open = true; }
+      if ([1000,1008].includes(event.code)) {
+        running = false;
+        status(phoneToken ? 'Session fermée. Scannez le QR code sur l’écran du joueur 2.' : 'Session fermée. Saisissez un nouveau code du PC.');
+        $('pairing').open = true;
+      }
       else if (attempts++ < 5) {
         status('Connexion perdue · Reconnexion à votre place…');
         retryTimer = setTimeout(() => connect(false), Math.min(15000,1500 * 2 ** attempts));
@@ -236,10 +243,16 @@
   }, 100);
   render('segaMD'); syncScreen();
   const params = new URLSearchParams(location.search);
-  codeInput.value = params.get('code') || '';
-  seat.value = ['1','2'].includes(params.get('player')) ? params.get('player') : '0';
+  const pairing = new URLSearchParams(location.hash.slice(1));
+  const phoneToken = pairing.get('phone');
+  if (phoneToken) {
+    codeInput.value = pairing.get('code') || '';
+    seat.value = '2';
+    codeInput.readOnly = true;
+    seat.disabled = true;
+  } else {
+    codeInput.value = params.get('code') || '';
+    seat.value = ['1','2'].includes(params.get('player')) ? params.get('player') : '0';
+  }
   if (/^\d{6}$/.test(codeInput.value)) connect();
 })();
-
-
-

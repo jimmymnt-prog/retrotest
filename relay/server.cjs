@@ -19,6 +19,7 @@ function createRelay(options = {}) {
   const assets = {
     '/online': ['online.html', 'text/html; charset=utf-8'],
     '/online.js': ['online.js', 'text/javascript; charset=utf-8'],
+    '/qrcode.js': ['qrcode.js', 'text/javascript; charset=utf-8'],
     '/': ['index.html', 'text/html; charset=utf-8'],
     '/controller.js': ['controller.js', 'text/javascript; charset=utf-8'],
     '/controller.css': ['controller.css', 'text/css; charset=utf-8']
@@ -44,8 +45,21 @@ function createRelay(options = {}) {
     const data = roster(room); send(room.host, data);
     for (const phone of room.phones.values()) send(phone, data);
   }
+  function releaseOnlineInput(room) {
+    room.lastInput.delete(2);
+    send(room.host, { type: 'input', player: 2, buttons: [] });
+  }
+  function stopOnlinePhone(room, message) {
+    if (!room.phoneToken) return;
+    room.phoneToken = null;
+    const phone = room.onlinePhone;
+    room.onlinePhone = null;
+    releaseOnlineInput(room);
+    if (phone) reject(phone, message);
+  }
   function expire(room) {
     rooms.delete(room.code);
+    stopOnlinePhone(room, 'Le partage du jeu est terminé.');
     for (const phone of room.phones.values()) {
       send(phone, { type: 'error', message: 'Session fermée. Demandez un nouveau code sur le PC.' });
       phone.close(1000);
@@ -108,11 +122,24 @@ function createRelay(options = {}) {
             code, host: ws, phones: new Map(), lastInput: new Map(), info: null,
             created: now, expires: now + codeTtl,
             maxPlayers: data.protocol === 3 && data.maxPlayers === 2 ? 2 : 1,
-            protocol: data.protocol === 3 ? 3 : 1, invite: null
+            protocol: data.protocol === 3 ? 3 : 1, invite: null, phoneToken: null, onlinePhone: null
           };
           ws.role = 'host'; ws.code = code; rooms.set(code, room); clearTimeout(pending);
           send(ws, { type: 'created', protocol: 3, online: true, code, expires: room.expires, maxPlayers: room.maxPlayers });
           broadcastRoster(room);
+        } else if (data.type === 'join_online_phone') {
+          if (!quota(ip, 'join', 20)) return reject(ws, 'Trop d’essais. Attendez une minute.');
+          const room = rooms.get(String(data.code || ''));
+          const guest = room?.phones.get(2);
+          if (!room?.invite || !guest?.online || guest.readyState !== 1 || !room.phoneToken || room.phoneToken !== data.token) {
+            return reject(ws, 'Lien manette invalide. Scannez le QR code sur l’écran du joueur 2.');
+          }
+          if (room.onlinePhone) return reject(ws, 'Un téléphone est déjà connecté à cette place.');
+          ws.role = 'online_phone'; ws.code = room.code; ws.player = 2;
+          room.onlinePhone = ws; clearTimeout(pending);
+          send(ws, { type: 'joined', protocol: 3, player: 2, maxPlayers: 2 });
+          if (room.info) send(ws, room.info);
+          send(guest, { type: 'online_phone_status', connected: true });
         } else if (data.type === 'join' || data.type === 'join_online') {
           if (!quota(ip, 'join', 20)) return reject(ws, 'Trop d’essais. Attendez une minute.');
           const room = rooms.get(String(data.code || ''));
@@ -131,7 +158,7 @@ function createRelay(options = {}) {
           ws.role = 'phone'; ws.code = room.code; ws.player = player; ws.online = online;
           room.phones.set(player, ws); room.lastInput.set(player, Date.now()); clearTimeout(pending);
           send(ws, { type: 'joined', protocol: 3, player, maxPlayers: room.maxPlayers });
-          if (online) send(ws, { type: 'online_ready', iceServers });
+          if (online) send(ws, { type: 'online_ready', iceServers, phone: true });
           if (room.info) send(ws, room.info);
           send(room.host, { type: 'phone_connected', player, online });
           broadcastRoster(room);
@@ -152,6 +179,7 @@ function createRelay(options = {}) {
       }
       if (ws === room.host && data.type === 'online_stop') {
         room.invite = null;
+        stopOnlinePhone(room, 'Le partage du jeu est terminé.');
         const guest = room.phones.get(2);
         if (guest?.online) {
           send(guest, { type: 'error', message: 'Le partage du jeu est terminé.' });
@@ -163,9 +191,22 @@ function createRelay(options = {}) {
         if (guest?.online && ws === room.host && data.kind === 'offer') send(guest, data);
         if (guest?.online && ws === guest && data.kind === 'answer') send(room.host, data);
       }
+      if (ws.online && ws === room.phones.get(2) && room.invite) {
+        if (data.type === 'online_phone_enable') {
+          if (!room.phoneToken) {
+            releaseOnlineInput(room);
+            room.phoneToken = randomBytes(24).toString('base64url');
+          }
+          send(ws, { type: 'online_phone_pairing', token: room.phoneToken, connected: !!room.onlinePhone });
+        }
+        if (data.type === 'online_phone_disable') stopOnlinePhone(room, 'Le joueur 2 a changé de commande.');
+      }
       if (ws === room.host && data.type === 'set_players' && room.protocol === 3 && [1, 2].includes(data.maxPlayers)) {
         room.maxPlayers = data.maxPlayers;
-        if (room.maxPlayers === 1) room.invite = null;
+        if (room.maxPlayers === 1) {
+          room.invite = null;
+          stopOnlinePhone(room, 'Le mode deux joueurs a été désactivé sur le PC.');
+        }
         if (room.maxPlayers === 1 && room.phones.has(2)) {
           const second = room.phones.get(2);
           room.phones.delete(2); room.lastInput.delete(2);
@@ -181,9 +222,11 @@ function createRelay(options = {}) {
           title: String(data.title || 'Jeu rétro').slice(0, 160), ready: data.ready === true
         };
         for (const phone of room.phones.values()) send(phone, room.info);
+        send(room.onlinePhone, room.info);
       }
-      if (ws.role === 'phone' && room.phones.get(ws.player) === ws && data.type === 'state') {
-        if (ws.online && !room.invite) return;
+      const activeController = ws === room.onlinePhone ||
+        (ws.role === 'phone' && room.phones.get(ws.player) === ws && (!ws.online || (room.invite && !room.phoneToken)));
+      if (activeController && data.type === 'state') {
         if (!Array.isArray(data.buttons) || data.buttons.length > 24 ||
             !data.buttons.every(i => Number.isInteger(i) && i >= 0 && i <= 23)) return;
         room.lastInput.set(ws.player, Date.now());
@@ -195,7 +238,13 @@ function createRelay(options = {}) {
       const room = rooms.get(ws.code);
       if (!room) return;
       if (room.host === ws) expire(room);
+      else if (room.onlinePhone === ws) {
+        room.onlinePhone = null;
+        releaseOnlineInput(room);
+        send(room.phones.get(2), { type: 'online_phone_status', connected: false });
+      }
       else if (room.phones.get(ws.player) === ws) {
+        if (ws.online) stopOnlinePhone(room, 'Le joueur 2 a quitté la partie.');
         room.phones.delete(ws.player); room.lastInput.delete(ws.player);
         send(room.host, { type: 'input', player: ws.player, buttons: [] });
         send(room.host, { type: 'phone_disconnected', player: ws.player });
@@ -233,4 +282,3 @@ if (require.main === module) {
   process.once('SIGTERM', () => relay.close());
   process.once('SIGINT', () => relay.close());
 }
-
